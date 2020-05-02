@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Micicle</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <script src="https://threejs.org/build/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://stemkoski.github.io/Three.js/js/Stats.js"></script>
+    <script src="https://preview.babylonjs.com/recast.js"></script>
+    <script src="./babylon.max.js"></script>
+    <script src="//cdn.rawgit.com/mrdoob/three.js/master/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://rawcdn.githack.com/mrdoob/three.js/master/examples/js/utils/BufferGeometryUtils.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/MaskPass.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://threejs.org/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://threejs.org/examples/js/shaders/FXAAShader.js"></script>
+    <script src="https://threejs.org/examples/js/shaders/ConvolutionShader.js"></script>
+    <script src="https://threejs.org/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://threejs-path.glitch.me/csg.js"></script>
+    <script src="./animationUtils.js"></script>
+    <script src="./recast-ext.js"></script>
+    <script src="./mazeGen.js"></script>
+    <script src="./grass.js"></script>
+    
+
+  
+        <style>
+      body,
+      html{
+          overflow: hidden;
+          margin: 0;
+          padding: 0;
+      }
+    </style>
+    </head>  
+  <body>
+   <!--<div id="applixir_vanishing_div" hidden>
+   <iframe id="applixir_parent"></iframe>
+</div>
+ <script type="text/javascript" src="https://cdn.applixir.com/applixir.sdk3.0m.js"></script>
+   <script type="application/javascript">
+  function adStatusCallback(status) {
+       
+            if (status)console.log('Applixir status: ' + status);
+
+        }
+     
+        var options = {
+
+            zoneId: 2726, // The zone ID from the Applixir "Games" page (required)
+            gameId: 4760,
+            dMode: 1,       // dMode 1 for MD5 checksum 0 for no MD5 checksum
+            adStatusCb: adStatusCallback,
+            fallback: 1|0
+        };
+
+                // Call the following function when you want to present a video ad to your user
+
+        invokeApplixirVideoUnit(options);
+
+    </script>-->
+
+   <!-- The applixir SDK file has all required CSS and JavaScript resources (use current version)-->
+
+    
+  <script>
+    THREE.TextureLoader.crossOrigin = '';
+    var textureLoader = new THREE.TextureLoader();
+    
+    var SIMWORLD = {
+    canvas: null,
+    stats: null,
+    scene: null,
+    renderer: null,
+    camera: null,
+    control: null,
+    clock: new THREE.Clock(),
+    mouse: new THREE.Vector2(),
+    raycaster: new THREE.Raycaster(),
+    mixers: [],
+    navMeshes: [],
+    alpha: 0,
+    enem_dir: new THREE.Vector3(0, 0, 0),
+    player_dir: new THREE.Vector3(0, 0, 0),
+    agentPos: new THREE.Vector3(0, 0, 0),
+    playerPos: new THREE.Vector3(0, 0, 0),
+    navigationPlugin: new BABYLON.RecastJSPlugin(),
+    crowd: null,
+    player: null,
+    collided: false,
+    player_transforms: [],
+    lastFrame: Date.now(),
+    thisFrame: null,
+    deltaTime: 0,
+    transform: null,
+    maze: null,
+    fruitsInv: [],
+    score: 0,
+    realscore: 0,
+    scoreMap: null,
+    messageMap: null,
+    collision_frequency: 0,
+    pursue_frequency: 0,
+    refreshTimeout: 0,
+    pathLines: null,
+    agentsMesh: [],
+    mazeplayer: null,
+    mazenemy: null,
+    stoprender: false,
+    pseudo: null,
+    composer: null,
+    assetloader: new THREE.GLTFLoader(),
+    
+      Initialize: function() {
+        this.renderer = new THREE.WebGLRenderer({
+            antialias: false,
+            
+        });
+        this.renderer.debug.checkShaderErrors = false;
+        this.renderer.setPixelRatio(.8)
+        this.renderer.setClearColor(new THREE.Color("black"))//"#AC886E").multiplyScalar(.3));
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(this.renderer.domElement);
+    
+        this.scene = new THREE.Scene();
+        // camera
+        this.camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 10000);
+        this.camera.position.set(3.82848775834478, 14.312192629205391, 2.8668215000160875);
+        this.camera.lookAt(this.scene.position);
+
+        var scene = this.scene
+        var renderer = this.renderer
+        var camera = this.camera
+
+        this.control = new THREE.OrbitControls(camera, renderer.domElement);
+        this.control.enabled = false
+    
+        this.ambient = new THREE.AmbientLight("#6122A1");
+        this.scene.add(this.ambient);
+
+        this.basiclight = new THREE.PointLight(0xffffff);
+        this.basiclight.position.set(100, 250, 250);
+        this.scene.add(this.basiclight);
+        
+        this.stats = new Stats();
+        this.stats.domElement.style.position = 'absolute';
+        this.stats.domElement.style.top = '0px';
+        this.stats.domElement.style.zIndex = 100;
+        document.body.appendChild(this.stats.domElement);
+        
+        
+        this.scoreBoard = SIMWORLD.createUI(false)
+        this.messageBoard = SIMWORLD.createUI(true)
+        this.messageBoard.position.y = 100
+        SIMWORLD.createNavMesh()
+       
+        this.composer = SIMWORLD.graphics()
+        document.addEventListener( 'click', this.onDocumentMouseUp.bind(this), false );
+        window.addEventListener('resize', this.onWindowResize, false);
+        
+        
+      },
+      onWindowResize: function(event) {
+        var camera = this.camera
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+      },
+      graphics: function(){
+      var scene = this.scene
+      var camera = this.camera
+      var renderer = this.renderer
+      var composer = this.composer
+      var bloomStrength = 0.5;
+      var bloomRadius = 0;
+      var bloomThreshold = 0.;
+      var renderScene = new THREE.RenderPass(scene, camera);
+
+      var effectFXAA = new THREE.ShaderPass(THREE.FXAAShader);
+      effectFXAA.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight );
+
+      var copyShader = new THREE.ShaderPass(THREE.CopyShader);
+      copyShader.renderToScreen = true;
+    
+	    var bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight),bloomStrength, bloomRadius, bloomThreshold);
+
+      composer = new THREE.EffectComposer(renderer);
+      //composer._pixelRatio = .5
+      composer.setSize(window.innerWidth, window.innerHeight);
+      composer.addPass(renderScene);
+
+      composer.addPass(bloomPass);
+     // composer.addPass(copyShader);
+      //composer.addPass(effectFXAA);
+      return composer
+      },
+    
+      createNavMesh: function(){
+        var scene = this.scene
+        var maze = this.maze
+        var navMeshes = this.navMeshes
+        var navigationPlugin = this.navigationPlugin
+        var navmeshParameters = {
+        cs: .04,
+        ch: .04,
+        walkableSlopeAngle: 35,
+        walkableHeight: 0.0,
+        walkableClimb: 0.0,
+        walkableRadius: 5,
+        maxEdgeLen: 12.,
+        maxSimplificationError: 1.3,
+        minRegionArea: 8,
+        mergeRegionArea: 2,
+        maxVertsPerPoly: 6,
+        detailSampleDist: 6,
+        detailSampleMaxError: .1,
+        };
+        console.time('createZone()');
+        
+        
+        var loader = this.assetloader
+        var scale = 10.0//.008//.6
+        
+        var url = "https://cdn.glitch.com/832401c3-8cbf-42db-acce-98209736affc%2Fscene%20(1).glb?v=1584936939510"
+        loader.load(url, function (data) {
+        gltf = data;
+        var object;
+        if ( gltf.scene !== undefined ) {
+            object = gltf.scene; // default scene
+        } else if ( gltf.scenes.length > 0 ) {
+            object = gltf.scenes[0]; // other scene
+        }
+
+                data.scene.traverse((child) => {
+
+           
+            if (child instanceof THREE.Mesh) {
+   
+                if (child.material.type = "MeshStandardMaterial") {
+                    child.material.dispose();
+                    scene.remove(child.material)
+          
+                    child.material = new THREE.MeshLambertMaterial({
+                        color: child.material.color.multiplyScalar(3),
+                        map: child.material.map,
+                        aoMap: child.material.aoMap,
+                        aoMapIntensity: 1,
+                        emissiveMap: child.material.emissiveMap,
+                      
+                    });
+                    
+                }
+              if(child.name === "Object_5"){
+                  //Generate navmesh
+              child.geometry.scale(scale, scale, scale)
+              child.geometry.rotateX(Math.PI/2)
+              scene.add(child)
+              navigationPlugin.createNavM([child], navmeshParameters)
+        
+              console.timeEnd('createZone()');
+              var navMeshData = navigationPlugin.createDebugNavyMesh(scene)
+
+              var navMesh = new THREE.Mesh(navMeshData.geometry, new THREE.MeshBasicMaterial({color: new THREE.Color("green").multiplyScalar(3), side: THREE.DoubleSide}))//map: grasstexture, side: THREE.DoubleSide}))
+              navMeshes.push(navMesh)
+              SIMWORLD.player = SIMWORLD.createCrowd(1, new THREE.Vector3( 0.4924043469656221, -2.0623157024383545, 0.48732836346560404), "player")
+              SIMWORLD.crowd = SIMWORLD.createCrowd(2, new THREE.Vector3(-3.162234817419354, -2.0623157024383545, -3.095576784531112), "enemy")
+              SIMWORLD.loadPlayer();
+              SIMWORLD.loadEnemy();
+              
+              }
+            }
+           })
+             
+          
+        })
+        
+     
+      },
+      createCrowd: function(n, pos, func){
+        var navigationPlugin = this.navigationPlugin
+        var scene = this.scene
+        var agentsMesh = this.agentsMesh
+        var player_transforms = this.player_transforms
+        var crowd = navigationPlugin.createCrowd(4, 5.);
+        var i;
+        var agentParams = {
+            radius: (func === "player")? 0.1 : 0.4,
+            height: .2,
+            maxAcceleration: (func === "player")? 4.0*2: 4.0*2,
+            maxSpeed: (func === "player")? 1.0*2: 1.0*2,
+            collisionQueryRange: (func === "player")? .5 : .9,
+            pathOptimizationRange: 0.0,
+            separationWeight: 10.0
+        };
+
+        for (i = 0; i <n; i++) {
+            var width = 0.20;
+            var agentCube = new THREE.Mesh(new THREE.BoxBufferGeometry(.2, .2, .2), new THREE.MeshBasicMaterial({color:"red", transparent: true, opacity: 0.0}))
+            scene.add(agentCube)
+            var variation = Math.random();
+            var randomPos = navigationPlugin.getRandomPointAround(pos, 0.5);
+            transform = new THREE.Object3D();
+            scene.add(transform)
+            agentCube.parent = transform;           
+            transform.add(agentCube)
+            if(func === "enemy")agentsMesh.push(agentCube);
+            if(func === "player")player_transforms.push(agentCube);
+            var agentIndex = crowd.addAgent(randomPos, agentParams, transform);
+        }
+        return crowd
+      },
+      loadEnemy: function(){
+        var loader = this.assetloader
+        var scene = this.scene
+        var agentsMesh = this.agentsMesh
+        var mixers = this.mixers;
+        var scale = .8//.008//.6
+        //var url = "https://cdn.glitch.com/6a20197d-4cad-4fc5-bd27-537460ea1cdb%2Fzombata.gltf?v=1571074383527"
+        //var url = "https://cdn.glitch.com/3b0cf707-4643-40ad-886b-220b8a3f7c44%2Fzombie.gltf?v=1572402949695"
+        //var url = "https://cdn.glitch.com/832401c3-8cbf-42db-acce-98209736affc%2Fdragonx.gltf?v=1578877313903"
+        
+        var url = "https://cdn.glitch.com/6a20197d-4cad-4fc5-bd27-537460ea1cdb%2Fzombata.gltf?v=1571074383527"
+        loader.load(url, function (data) {
+        gltf = data;
+        var object;
+        if ( gltf.scene !== undefined ) {
+            object = gltf.scene; // default scene
+        } else if ( gltf.scenes.length > 0 ) {
+            object = gltf.scenes[0]; // other scene
+        }
+        object.scale.set(scale, scale, scale);
+        var animations = gltf.animations;
+         THREE.ImageUtils.crossOrigin = '';
+         //var texture = THREE.ImageUtils.loadTexture('https://cdn.glitch.com/ce192d96-fb1a-4b23-8d96-dd1e3d4c6629%2Fd3gbkkz-51c08bcc-4512-4a24-954c-1b4bdaeb84ca.png?1558285245388');
+         data.scene.traverse((child) => {
+
+           
+            if (child instanceof THREE.Mesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                //console.log(child.material)
+                if (child.material.type = "MeshStandardMaterial") {
+                    child.material.dispose();
+                    scene.remove(child.material)
+          
+                    child.material = new THREE.MeshBasicMaterial({
+                        color: new THREE.Color("red").multiplyScalar(15),
+                        map: child.material.map,
+                        morphTargets: true
+                      
+                    });
+                    
+                    }
+                    
+                    }
+                    })
+        
+          var mixer = new THREE.AnimationMixer(object);
+          var animation = AnimationUtils.subclip(animations[0], 'idle', 1, 25);
+          mixer.clipAction(animation).play();
+          mixers.push(mixer)
+          for(var i = 0; i<agentsMesh.length; i++){
+          var clone = object.clone()
+          scene.add(clone)
+          clone.parent = agentsMesh[i]
+          agentsMesh[i].add(clone)
+          
+            var mixer = new THREE.AnimationMixer(clone);
+          mixer.clipAction(animation).play();
+          mixers.push(mixer)
+            
+          }
+     
+          
+        })
+                    
+      },
+      loadPlayer: function(){
+        
+        var scene = this.scene
+        var player = this.player
+        var player_transforms = this.player_transforms                     
+         var loader = this.assetloader
+        var scene = this.scene
+        var agentsMesh = this.agentsMesh
+        var mixers = this.mixers;
+        var scale = .8;
+         
+        var url = "https://cdn.glitch.com/8a8e41e2-6b94-488e-ae43-3afdfc4b1c14%2Fcynthia.glb?v=1583686452684"
+        loader.load(url, function (data) {
+        gltf = data;
+        var object;
+        if ( gltf.scene !== undefined ) {
+            object = gltf.scene; // default scene
+        } else if ( gltf.scenes.length > 0 ) {
+            object = gltf.scenes[0]; // other scene
+        }
+        object.scale.set(scale, scale, scale);
+        var animations = gltf.animations;
+             data.scene.traverse((child) => {
+
+           
+            if (child instanceof THREE.Mesh) {
+        
+                if (child.material.type = "MeshStandardMaterial") {
+                    child.material.dispose();
+                    scene.remove(child.material)
+          
+                    child.material = new THREE.MeshBasicMaterial({
+                        color: new THREE.Color("orange").multiplyScalar(8),//child.material.color.multiplyScalar(1.),
+                        side: THREE.DoubleSide,
+                        map: child.material.map,
+                        skinning: true
+                      
+                    });
+                    
+                      }
+                    
+                    }
+                })
+          
+          scene.add(object)
+          var mixer = new THREE.AnimationMixer(object);
+          var animation = AnimationUtils.subclip(animations[0], 'idle', 1, 25);
+          mixer.clipAction(animation).play();
+          mixers.push(mixer)
+        
+        for(var i = 0; i< player_transforms.length; i++){
+        player.parent = player_transforms[i]
+        player_transforms[i].add(object)
+        }
+          
+        })
+      },
+      createUI: function(messageBox){
+      var scene = this.scene
+      var camera = this.camera
+      var score = this.score
+      var width = window.innerWidth;
+      var height = window.innerHeight;
+    
+      var hudCanvas = document.createElement('canvas');
+      hudCanvas.width = width;
+      hudCanvas.height = height;
+      var hudBitmap = hudCanvas.getContext('2d');
+      hudBitmap.font = "Normal 40px Chalkduster";
+      hudBitmap.textAlign = 'center';
+      hudBitmap.fillStyle = "rgba(245,245,245,0.75)";
+      hudBitmap.fillRect(0, 0, window.width, window.height);
+      if(messageBox)hudBitmap.fillStyle = "rgba(245,0,0,0.75)";
+      
+      if(messageBox)hudBitmap.fillText('Game Over!! You were eaten!', width / 2, height / 2), SIMWORLD.messageMap = hudBitmap;
+      //  else if(parseInt(localStorage.getItem('hscore')) != null)hudBitmap.fillText('Score: '+parseInt(localStorage.getItem('hscore')), width / 2, height / 2), SIMWORLD.scoreMap = hudBitmap;
+      //  else 
+        hudBitmap.fillText('Score: '+0, width / 2, height / 2), SIMWORLD.scoreMap = hudBitmap;
+      var hudTexture = new THREE.Texture(hudCanvas) 
+      hudTexture.needsUpdate = true;
+
+      // Create HUD material.
+      var material = new THREE.MeshBasicMaterial( {map: hudTexture} );
+      material.transparent = true;
+      // Create plane to render the HUD. This plane fill the whole screen.
+      var planeGeometry = new THREE.PlaneGeometry( width, height );
+      var plane = new THREE.Mesh( planeGeometry, material );
+      scene.add( plane );
+      if(messageBox)plane.scale.set(.003, .003, .003)
+      else plane.scale.set(.001*3, .001*3, .001*3)
+      
+      plane.parent = camera
+      camera.add(plane)
+      if(!messageBox)plane.position.y = .3*3
+      if(!messageBox)plane.position.x = .4*3
+      plane.position.z = -3
+      return plane
+        
+      },
+      checkIntersection: function(object1, object2) {
+        //check intersection with simple aabb collision
+        object1.geometry.computeBoundingBox(); //not needed if its already calculated
+        object2.geometry.computeBoundingBox();
+
+        object1.updateMatrixWorld();
+        object2.updateMatrixWorld();
+        var box1 = object1.geometry.boundingBox.clone();
+        box1.applyMatrix4(object1.matrixWorld);
+
+        var box2 = object2.geometry.boundingBox.clone();
+        box2.applyMatrix4(object2.matrixWorld);
+
+        return box1.intersectsBox(box2);
+
+    },
+      playAgain: function(){
+      var scene = this.scene
+      var renderer = this.renderer
+      var stats = this.stats
+      var navigationPlugin = this.navigationPlugin
+      var crowd = this.crowd
+      var player = this.player
+ 
+      if(renderer.domElement)document.body.removeChild( renderer.domElement );
+      delete renderer
+      if(stats.domElement)document.body.appendChild(stats.domElement);
+      delete stats
+      //crowd.dispose();
+      //player.dispose();
+      this.player_transforms.length = 0
+      this.agentsMesh.length = 0
+      this.fruitsInv.length = 0
+      this.realscore = 0
+      navigationPlugin.dispose();
+      this.stoprender = true
+      
+      scene.remove.apply(scene, scene.children);
+
+      },
+      onDocumentMouseUp: function(event) {
+    
+      var pathLines = SIMWORLD.pathLines
+      var mouse = SIMWORLD.mouse
+      var camera = SIMWORLD.camera
+      var raycaster = SIMWORLD.raycaster
+      var navMeshes = SIMWORLD.navMeshes
+      var crowd = SIMWORLD.player
+      var navigationPlugin = SIMWORLD.navigationPlugin
+      var pathLines = SIMWORLD.pathLines
+      var player_transforms = SIMWORLD.player_transforms
+      var col = this.collided
+      var scene = SIMWORLD.scene
+			mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+			mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+			camera.updateMatrixWorld();
+			raycaster.setFromCamera( mouse, camera );
+			const intersects = raycaster.intersectObjects( navMeshes );
+      
+			if ( !intersects.length) return;
+      startingPoint = intersects[0].point;
+       // console.log(startingPoint)
+      SIMWORLD.pseudo = startingPoint
+      if (startingPoint && crowd) { // we need to disconnect camera from canvas
+       
+                var agents = crowd.getAgents();
+                var i;
+                for (i=0;i<agents.length;i++) {
+                    var randomPos = navigationPlugin.getRandomPointAround(startingPoint, 1.0);
+                    crowd.agentGoto(agents[i], navigationPlugin.getClosestPoint(startingPoint));
+                }
+             var pathPoints = navigationPlugin.computePath(crowd.getAgentPosition(agents[0]), navigationPlugin.getClosestPoint(startingPoint));
+                if (pathPoints && pathPoints.length) {
+             
+           /* if(SIMWORLD.pathLines) {
+             
+							scene.remove(SIMWORLD.pathLines);
+						}
+                  
+              var geometry = new THREE.Geometry();
+			       
+              for (var i = 0; i < pathPoints.length; i++) {
+							geometry.vertices.push(pathPoints[i].clone().add(new THREE.Vector3(0, 0.2, 0)));
+						  }
+
+						SIMWORLD.pathLines = new THREE.Line( geometry );
+						scene.add( SIMWORLD.pathLines );*/
+            }
+        
+        }
+  
+      },
+      pursuePlayer: function(player_pos){
+      var crowd = SIMWORLD.crowd
+      var navigationPlugin = SIMWORLD.navigationPlugin
+      var startingPoint = player_pos;
+      if (startingPoint && crowd) { // we need to disconnect camera from canvas
+       
+                var agents = crowd.getAgents();
+                var i;
+                for (i=0;i<agents.length;i++) {
+                    var randomPos = navigationPlugin.getRandomPointAround(startingPoint, 1.0);
+                    crowd.agentGoto(agents[i], navigationPlugin.getClosestPoint(startingPoint));
+                }
+             
+        
+        }
+      },
+       animate: function() {
+
+        var handler = requestAnimationFrame(this.animate.bind(this));
+        if(this.stoprender)console.log("render stopped!"),cancelAnimationFrame(handler);
+        var scene = this.scene
+        var renderer = this.renderer
+        var camera = this.camera
+        var crowd = this.crowd
+        var player = this.player
+        var clock = this.clock
+        var composer = this.composer
+        var agentsMesh = this.agentsMesh
+        var player_transforms = this.player_transforms
+        var enem_dir = this.enem_dir
+        var player_dir = this.player_dir
+        var agentPos = this.agentPos
+        var playerPos = this.playerPos
+        var alpha = this.alpha
+        var mixers = this.mixers
+        var stats = this.stats
+        
+        this.thisFrame = Date.now();
+        this.deltaTime += (this.thisFrame - this.lastFrame)/1500;	
+        this.lastFrame = this.thisFrame;
+        
+        alpha = (Math.random() * (.02 - .005)) + .005;
+        if (mixers.length != 0) {
+            for (var i = 0; i < mixers.length; i++) {
+                mixers[i].update(alpha);
+            }
+        }
+         
+          if(player){
+           player.update(alpha)
+          
+           if(player_transforms[0].parent){
+           player_transforms[0].getWorldPosition( playerPos );
+           player_dir = player_transforms[0].parent.position.clone()
+           player_transforms[0].rotation.y = Math.atan2(player_dir.x - playerPos.x, player_dir.z - playerPos.z)
+           
+           
+             
+          
+           }
+           
+         }
+            
+        if(crowd){
+        crowd.update(alpha)
+    
+         for(var i = 0; i<agentsMesh.length; i++){
+          if(agentsMesh[i].parent){
+          
+          enem_dir = agentsMesh[i].parent.position
+          agentsMesh[i].getWorldPosition( agentPos );
+         
+          var dist =  agentPos.distanceToSquared(playerPos)
+          
+          if(dist < 4)agentsMesh[i].rotation.y = Math.atan2(player_dir.x - agentPos.x, player_dir.z - agentPos.z)-Math.PI*2
+          else agentsMesh[i].rotation.y = Math.atan2(enem_dir.x - agentPos.x, enem_dir.z - agentPos.z)
+
+          SIMWORLD.pursuePlayer(this.navigationPlugin.getClosestPoint(playerPos.subScalar(1.)))
+            }
+          }
+        }
+        
+        
+    
+        stats.update()
+       // if(composer)composer.render();
+        renderer.render(scene, camera);
+        }
+    
+    }
+    
+    document.addEventListener("mousedown", function(ev){
+      if(SIMWORLD.won){
+        SIMWORLD.won = false
+        SIMWORLD.Initialize()
+        SIMWORLD.loadPlayer()
+        SIMWORLD.loadAnimatedMesh()
+        SIMWORLD.stoprender = false
+        SIMWORLD.animate()
+      }
+    })
+    
+    window.onload = function(){
+      SIMWORLD.Initialize()
+      
+      //SIMWORLD.loadAnimatedMesh()
+      SIMWORLD.animate()
+    }
+    </script>
+  </body>
+</html>
