@@ -605,8 +605,7 @@
            
          }
             
-        this.pursue_frequency += 1
-         
+       
         if(crowd){
         crowd.update(alpha)
     
@@ -622,13 +621,7 @@
           if(dist < 4)agentsMesh[i].rotation.y = Math.atan2(player_dir.x - agentPos.x, player_dir.z - agentPos.z)-Math.PI*2
           else agentsMesh[i].rotation.y = Math.atan2(enem_dir.x - agentPos.x, enem_dir.z - agentPos.z)
     
-            //call the purse player function asynchronously, otherwise the zombies are stuck in one position
-            if(this.pursue_frequency == 10)this.pursue_frequency = 0
-             else if(this.pursue_frequency == 0) this.pursue_frequency += 1;
-             if(this.pursue_frequency == 9){
-             SIMWORLD.pursuePlayer(this.navigationPlugin.getClosestPoint(playerPos.subScalar(0.)))
-            }
-          
+          SIMWORLD.pursuePlayer(this.navigationPlugin.getClosestPoint(playerPos.subScalar(0.)))
             }
           }
         }
