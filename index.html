@@ -39,35 +39,6 @@
     </style>
     </head>  
   <body>
-   <!--<div id="applixir_vanishing_div" hidden>
-   <iframe id="applixir_parent"></iframe>
-</div>
- <script type="text/javascript" src="https://cdn.applixir.com/applixir.sdk3.0m.js"></script>
-   <script type="application/javascript">
-  function adStatusCallback(status) {
-       
-            if (status)console.log('Applixir status: ' + status);
-
-        }
-     
-        var options = {
-
-            zoneId: 2726, // The zone ID from the Applixir "Games" page (required)
-            gameId: 4760,
-            dMode: 1,       // dMode 1 for MD5 checksum 0 for no MD5 checksum
-            adStatusCb: adStatusCallback,
-            fallback: 1|0
-        };
-
-                // Call the following function when you want to present a video ad to your user
-
-        invokeApplixirVideoUnit(options);
-
-    </script>-->
-
-   <!-- The applixir SDK file has all required CSS and JavaScript resources (use current version)-->
-
-    
   <script>
     THREE.TextureLoader.crossOrigin = '';
     var textureLoader = new THREE.TextureLoader();
@@ -634,6 +605,8 @@
            
          }
             
+        this.pursue_frequency += 1
+         
         if(crowd){
         crowd.update(alpha)
     
@@ -645,10 +618,17 @@
          
           var dist =  agentPos.distanceToSquared(playerPos)
           
+          //make the crowd agents face the direction they are moving
           if(dist < 4)agentsMesh[i].rotation.y = Math.atan2(player_dir.x - agentPos.x, player_dir.z - agentPos.z)-Math.PI*2
           else agentsMesh[i].rotation.y = Math.atan2(enem_dir.x - agentPos.x, enem_dir.z - agentPos.z)
-
-          SIMWORLD.pursuePlayer(this.navigationPlugin.getClosestPoint(playerPos.subScalar(1.)))
+    
+            //call the purse player function asynchronously, otherwise the zombies are stuck in one position
+            if(this.pursue_frequency == 10)this.pursue_frequency = 0
+             else if(this.pursue_frequency == 0) this.pursue_frequency += 1;
+             if(this.pursue_frequency == 9){
+             SIMWORLD.pursuePlayer(this.navigationPlugin.getClosestPoint(playerPos.subScalar(0.)))
+            }
+          
             }
           }
         }
@@ -656,8 +636,8 @@
         
     
         stats.update()
-       // if(composer)composer.render();
-        renderer.render(scene, camera);
+        // if(composer)composer.render();
+        composer.render(scene, camera);
         }
     
     }
